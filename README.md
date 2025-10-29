@@ -1,4 +1,4 @@
-## D&D 2024 — Classes Optimizer (final)
+## D&D 2024 — Classes Optimizer (On going)
 
 Features:
 
