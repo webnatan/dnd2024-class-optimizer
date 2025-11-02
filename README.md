@@ -12,5 +12,6 @@ To run:
 
 1. npm install
 2. npm run dev
+   Open the URL provided by Vite (usually http://localhost:5173)
 
 This is a React + Vite + Tailwind Project
