@@ -9,4 +9,15 @@ export function computePointBuyCost(scores) {
   return scores.reduce((s,x)=>s+pointBuyCostForScore(Number(x)),0);
 }
 export function validatePointBuy(scores, limit=27) { return computePointBuyCost(scores) <= limit; }
-export function suggestPointBuyForClass(className) { return [15,14,13,12,10,8]; }
+export function suggestPointBuyForClass(priority) {
+  const KEYS = ["STR","DEX","CON","INT","WIS","CHA"];
+  const STANDARD = [15,14,13,12,10,8];
+  const prio = Array.isArray(priority) ? priority.slice(0, 3) : [];
+  const remaining = KEYS.filter(k => !prio.includes(k));
+  const order = prio.concat(remaining); // first 3 get 15,14,13; rest get 12,10,8
+  const scores = {};
+  for (let i = 0; i < order.length; i++) {
+    scores[order[i]] = STANDARD[i];
+  }
+  return KEYS.map(k => scores[k]);
+}

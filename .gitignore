@@ -5,5 +5,7 @@ Thumbs.db
 .idea/
 *.iml
 
+.vite/
+
 node_modules
 dist

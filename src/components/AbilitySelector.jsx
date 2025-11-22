@@ -1,10 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-  getStandardArray,
-  computePointBuyCost,
-  suggestPointBuyForClass,
-  STAT_KEYS,
-} from '../utils/ability_rules.js';
+import React, { useState, useEffect , useMemo} from 'react';
+import { getStandardArray, computePointBuyCost, STAT_KEYS } from '../utils/ability_rules.js';
 
 const ACTION_BTN =
   'px-3 py-1 border rounded bg-slate-700 text-white hover:bg-slate-600 transition';
@@ -27,14 +22,25 @@ export default function AbilitySelector({
   setIsAutoFilled,
   isAutoFilled,
 }) {
+  // Local ordering helpers (inside component to access selectedClass)
+  const KEY_INDEX = { STR:0, DEX:1, CON:2, INT:3, WIS:4, CHA:5 };
+  const orderedKeys = useMemo(() => {
+    const prio = Array.isArray(selectedClass?.priority) ? selectedClass.priority : [];
+    const rest = STAT_KEYS.filter(k => !prio.includes(k));
+    return [...prio, ...rest];
+  }, [selectedClass]);
+
   const POINTBUY_LIMIT = 27;
   const [pointsLeft, setPointsLeft] = useState(POINTBUY_LIMIT);
+
+  const safeRolls = (Array.isArray(rolls) && rolls.length === 6) ? rolls : [8,8,8,8,8,8];
 
   useEffect(() => {
     if (mode === 'standard') {
       setRolls(getStandardArray());
       setIsAutoFilled?.([true, true, true, true, true, true]);
     } else if (mode === 'pointbuy') {
+      // Always start at 8s; DO NOT change on class switch
       setRolls([8, 8, 8, 8, 8, 8]);
       setIsAutoFilled?.([true, true, true, true, true, true]);
     } else if (mode === 'auto') {
@@ -46,8 +52,10 @@ export default function AbilitySelector({
 
   useEffect(() => {
     if (mode === 'pointbuy') {
-      const cost = computePointBuyCost(rolls.map(Number));
-      setPointsLeft(POINTBUY_LIMIT - cost);
+      try {
+        const cost = computePointBuyCost(safeRolls.map(Number));
+        setPointsLeft(POINTBUY_LIMIT - cost);
+      } catch {}
     }
   }, [rolls, mode]);
 
@@ -55,12 +63,13 @@ export default function AbilitySelector({
     const val = Number(newScore);
     if (Number.isNaN(val)) return;
     if (val < 8 || val > 15) return;
-    const newRolls = [...rolls];
+    const base = (Array.isArray(rolls) && rolls.length === 6) ? rolls : [8,8,8,8,8,8];
+    const newRolls = [...base];
     newRolls[index] = val;
     setRolls(newRolls);
 
     if (setIsAutoFilled) {
-      const flags = [...isAutoFilled];
+      const flags = Array.isArray(isAutoFilled) ? [...isAutoFilled] : new Array(6).fill(false);
       flags[index] = false;
       setIsAutoFilled(flags);
     }
@@ -118,9 +127,6 @@ export default function AbilitySelector({
         <div className="mt-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <button onClick={applySuggestion} className={ACTION_BTN}>
-                Suggest for Class
-              </button>
               <button onClick={clearPointBuy} className={ACTION_BTN}>
                 Clear
               </button>
@@ -139,15 +145,15 @@ export default function AbilitySelector({
 
           {/* Restored Patch 0.81 design with extra spacing (mt-3) and full stat names */}
           <div className="grid grid-cols-2 gap-2 mt-3">
-            {STAT_KEYS.map((stat, i) => (
+            {orderedKeys.map((stat) => (
               <div key={stat} className="relative flex items-center justify-between border p-2 rounded dark:border-slate-600">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{STAT_LABELS[stat]}</span>
                 </div>
                 <input
                   type="number"
-                  value={rolls[i]}
-                  onChange={(e) => updateScore(i, e.target.value)}
+                  value={safeRolls[KEY_INDEX[stat]]}
+                  onChange={(e) => updateScore(KEY_INDEX[stat], e.target.value)}
                   className="w-16 text-center border rounded dark:border-slate-500 dark:bg-slate-700"
                   min={8}
                   max={15}

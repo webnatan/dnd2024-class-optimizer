@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import AbilitySelector from "./components/AbilitySelector.jsx";
 import { BACKGROUNDS } from "./data_backgrounds.js";
-import {
-  STAT_KEYS,
-  getStandardArray,
-  suggestPointBuyForClass,
-} from "./utils/ability_rules.js";
+import { STAT_KEYS, getStandardArray } from "./utils/ability_rules.js";
 
 /* Labels */
 const STAT_LABELS = {
@@ -17,7 +13,7 @@ const STAT_LABELS = {
   CHA: "Charisma",
 };
 
-/* Light class weights used for scoring assignments */
+/* Class weights */
 const CLASS_DATA = [
   {
     name: "Barbarian",
@@ -64,7 +60,6 @@ const CLASS_DATA = [
 ];
 
 /* Helpers */
-
 function roll4d6DropLowestDetailed() {
   const rolls = Array.from(
     { length: 4 },
@@ -75,9 +70,11 @@ function roll4d6DropLowestDetailed() {
   const total = sorted.slice(1).reduce((s, v) => s + v, 0);
   return { total, rolls, dropped };
 }
+
 function modifier(score) {
   return Math.floor((score - 10) / 2);
 }
+
 function permutations(arr) {
   if (!Array.isArray(arr)) return [];
   if (arr.length <= 1) return [arr.slice()];
@@ -88,8 +85,6 @@ function permutations(arr) {
   }
   return res;
 }
-
-/* Component */
 
 export default function BackgroundOptimizer() {
   const [mode, setMode] = useState("manual"); // manual | auto | standard | pointbuy
@@ -132,7 +127,7 @@ export default function BackgroundOptimizer() {
     } catch {}
   }, [isDark, theme]);
 
-  // initialize/reset behavior when switching modes
+  // Initialize/reset behavior when switching modes
   useEffect(() => {
     if (mode === "manual") {
       setRolls(["", "", "", "", "", ""]);
@@ -145,26 +140,8 @@ export default function BackgroundOptimizer() {
       setRolls([8, 8, 8, 8, 8, 8]);
       setIsAutoFilled([true, true, true, true, true, true]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  // when selected class changes while in pointbuy and values are auto-filled, update suggestion
-  useEffect(() => {
-    if (mode === "pointbuy") {
-      const allAuto =
-        Array.isArray(isAutoFilled) && isAutoFilled.every(Boolean);
-      if (allAuto) {
-        const suggestion = suggestPointBuyForClass(selectedClass);
-        if (Array.isArray(suggestion) && suggestion.length === 6) {
-          setRolls(suggestion);
-          setIsAutoFilled(suggestion.map(() => true));
-        }
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClass]);
-
-  /* UI helpers (background abilities) */
   const allowed = background
     ? BACKGROUNDS[background]?.abilities || STAT_KEYS
     : STAT_KEYS;
@@ -197,11 +174,11 @@ export default function BackgroundOptimizer() {
     return out;
   };
 
-  /* Core scoring: compute best assignment per class */
   const compute = useMemo(() => {
     const nums = rolls.map(Number);
-    if (nums.some((n) => isNaN(n)))
+    if (nums.some((n) => isNaN(n))) {
       return { error: "Enter six numeric rolls or switch to a valid mode." };
+    }
 
     const perms = permutations(nums);
     const results = CLASS_DATA.map((cls) => {
@@ -211,8 +188,9 @@ export default function BackgroundOptimizer() {
         STAT_KEYS.forEach((s, i) => (assign[s] = p[i]));
         const withBg = applyBackgroundToAssign(assign);
         let sc = 0;
-        for (const s of STAT_KEYS)
+        for (const s of STAT_KEYS) {
           sc += (withBg[s] || assign[s] || 0) * (cls.weights[s] || 0);
+        }
         if (sc > best.score) best = { score: sc, assign: assign };
       }
       return { className: cls.name, score: best.score, assign: best.assign };
@@ -222,7 +200,6 @@ export default function BackgroundOptimizer() {
     return { results };
   }, [rolls, background, bgMode, choices]);
 
-  /* Roll / update helpers */
   const updateRoll = (i, val) => {
     const copy = [...rolls];
     copy[i] = val === "" ? "" : Number(val);
@@ -242,8 +219,8 @@ export default function BackgroundOptimizer() {
     b[i] = d;
     setRolls(r);
     setBreakdowns(b);
-    setIsAutoFilled((p) => {
-      const copy = [...p];
+    setIsAutoFilled((prev) => {
+      const copy = [...prev];
       copy[i] = true;
       return copy;
     });
@@ -268,16 +245,15 @@ export default function BackgroundOptimizer() {
     setChoices([]);
   };
 
-  /* Normalized mode check (defensive) */
   const normalizedMode =
     typeof mode === "string" ? mode.trim().toLowerCase() : "";
 
-  /* UI classes */
   const borderStat = isDark ? "border-slate-600" : "border-gray-300";
   const panelBg = isDark ? "bg-slate-800" : "bg-gray-50";
   const mainBg = isDark
     ? "bg-slate-900 text-slate-200"
     : "bg-white text-slate-900";
+
   const actionBtn =
     "px-3 py-1 border rounded bg-slate-700 text-white hover:bg-slate-600 transition";
 
@@ -291,7 +267,7 @@ export default function BackgroundOptimizer() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-2">
-              D&amp;D 2024 — Classes Optimizer
+              D&D 2024 — Classes Optimizer
             </h1>
             <p
               className={`text-sm mb-4 ${
@@ -299,10 +275,7 @@ export default function BackgroundOptimizer() {
               }`}
             >
               Use this tool to compare how your rolled stats and background
-              bonuses fit every class for early-game play (levels 1–3). The
-              background feature is optional and can be changed anytime to test
-              different backgrounds, but no ability score improvements or custom
-              bonuses are included.
+              bonuses fit every class for early-game play.
             </p>
           </div>
 
@@ -330,12 +303,15 @@ export default function BackgroundOptimizer() {
           </div>
         </div>
 
-        <div className="mt-4 grid md:grid-cols-2 gap-4 items-stretch">
-          {/* Left column: Rules / Rolls / PointBuy */}
+        {/* Layout:
+            - mobile: 1 col
+            - tablet: 2 cols (Rules + Classes), details below spanning both
+            - desktop: 3 cols with ratios 2.2 / 1.4 / 0.9
+        */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-stretch cols-md-weights">
+          {/* Left column: Rules / Rolls / PointBuy / Background */}
           <div
-            className={`p-4 rounded ${panelBg} flex flex-col border ${
-              isDark ? "border-slate-600" : "border-gray-300"
-            }`}
+            className={`p-4 rounded ${panelBg} flex flex-col border ${borderStat}`}
           >
             <AbilitySelector
               mode={mode}
@@ -347,7 +323,7 @@ export default function BackgroundOptimizer() {
               setIsAutoFilled={setIsAutoFilled}
             />
 
-            {/* Auto Roll / Clear row (shown for manual/auto/standard — but hidden if in pointbuy) */}
+            {/* Auto Roll / Clear row (hidden if pointbuy) */}
             {normalizedMode !== "pointbuy" &&
               (mode === "manual" || mode === "auto" || mode === "standard") && (
                 <div className="mt-1 mb-2">
@@ -379,7 +355,7 @@ export default function BackgroundOptimizer() {
                 </div>
               )}
 
-            {/* Results — hidden when pointbuy is active (defensive check) */}
+            {/* Results (hidden when pointbuy is active) */}
             {normalizedMode !== "pointbuy" && (
               <>
                 <h2 className="font-semibold">Results</h2>
@@ -410,7 +386,7 @@ export default function BackgroundOptimizer() {
                         </button>
                       )}
 
-                      {/* tooltip breakdown when available and in auto mode */}
+                      {/* Tooltip breakdown when available and in auto mode */}
                       {mode === "auto" && breakdowns[i] && hoverIndex === i && (
                         <div className="absolute z-20 -top-14 left-0 w-max p-2 bg-slate-700 text-slate-200 border rounded shadow">
                           <div className="text-xs font-medium">
@@ -527,11 +503,9 @@ export default function BackgroundOptimizer() {
             </div>
           </div>
 
-          {/* Right column: Classes */}
+          {/* Middle column: Classes */}
           <div
-            className={`p-4 rounded ${panelBg} h-full flex flex-col border ${
-              isDark ? "border-slate-600" : "border-gray-300"
-            }`}
+            className={`p-4 rounded ${panelBg} h-full flex flex-col border ${borderStat}`}
           >
             <h2 className="font-semibold">Classes</h2>
             <div className="mt-3 space-y-2 overflow-auto pr-2 flex-1">
@@ -564,62 +538,78 @@ export default function BackgroundOptimizer() {
                 ))}
             </div>
           </div>
-        </div>
 
-        {/* Selected class details */}
-        <div
-          className={`mt-4 p-4 rounded ${panelBg} border ${
-            isDark ? "border-slate-600" : "border-gray-300"
-          }`}
-        >
-          <h2 className="font-semibold">Selected class details</h2>
-          <div className="mt-3">
-            {!selectedClass && (
-              <div
-                className={`text-sm ${
-                  isDark ? "text-slate-400" : "text-slate-500"
-                }`}
-              >
-                Click a class on the right to view its optimized assignment.
-              </div>
-            )}
+          {/* Right column: Selected class details
+              - sm: span 2 cols (below)
+              - md+: 1 col (third column)
+          */}
+          <div
+            className={`p-4 rounded ${panelBg} border ${borderStat} sm:col-span-2 md:col-span-1`}
+          >
+            <h2 className="font-semibold">Selected class details</h2>
+            <div className="mt-3">
+              {!selectedClass && (
+                <div
+                  className={`text-sm ${
+                    isDark ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  Click a class to view its optimized assignment.
+                </div>
+              )}
 
-            {selectedClass &&
-              compute.results &&
-              (() => {
-                const r = compute.results.find(
-                  (x) => x.className === selectedClass
-                );
-                if (!r) return <div className="text-sm">No data</div>;
-                const applied = applyBackgroundToAssign(r.assign);
-                return (
-                  <div>
-                    <div className="mb-2 font-semibold">{r.className}</div>
-                    <div className="grid grid-cols-6 gap-2">
-                      {STAT_KEYS.map((s) => (
-                        <div
-                          key={s}
-                          className={`p-2 border rounded text-center ${borderStat}`}
-                        >
-                          <div className="text-xs text-slate-400">
-                            {STAT_LABELS[s]}
+              {selectedClass &&
+                compute.results &&
+                (() => {
+                  const r = compute.results.find(
+                    (x) => x.className === selectedClass
+                  );
+                  if (!r) return <div className="text-sm">No data</div>;
+                  const applied = applyBackgroundToAssign(r.assign);
+                  return (
+                    <div>
+                      <div className="mb-2 font-semibold">{r.className}</div>
+                      {/* Mobile: vertical; tablet: 6 across; desktop: vertical again */}
+                      <div className="grid grid-cols-1 sm:grid-cols-6 md:grid-cols-1 gap-3">
+                        {STAT_KEYS.map((s) => (
+                          <div
+                            key={s}
+                            className={`p-2 border rounded text-center ${borderStat}`}
+                          >
+                            <div className="text-xs text-slate-400">
+                              {STAT_LABELS[s]}
+                            </div>
+                            <div className="text-xl font-semibold font-mono">
+                              {applied[s]}
+                            </div>
+                            <div className="text-4xl">
+                              {modifier(applied[s]) > 0
+                                ? "+" + modifier(applied[s])
+                                : modifier(applied[s])}
+                            </div>
                           </div>
-                          <div className="text-xl font-semibold font-mono">
-                            {applied[s]}
-                          </div>
-                          <div className="text-4xl">
-                            {modifier(applied[s]) > 0
-                              ? "+" + modifier(applied[s])
-                              : modifier(applied[s])}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
+            </div>
           </div>
         </div>
+
+        {/* Desktop & tablet column rules */}
+        <style>{`
+          @media (min-width: 768px) {
+            .cols-md-weights {
+              grid-template-columns: 2.2fr 1.4fr 0.9fr !important;
+            }
+          }
+          @media (min-width: 640px) and (max-width: 767px) {
+            .cols-md-weights {
+              grid-template-columns: repeat(2, 1fr);
+            }
+          }
+        `}</style>
       </div>
     </div>
   );
